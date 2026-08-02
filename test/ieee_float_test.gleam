@@ -61,6 +61,7 @@ pub fn parse_test() {
 
 pub fn fp16_bytes_serde_test() {
   [
+    #([0x80, 0x00], finite(-0.0)),
     #([0x00, 0x00], finite(0.0)),
     #([0x3C, 0x00], finite(1.0)),
     #([0xBC, 0x00], finite(-1.0)),
@@ -78,9 +79,19 @@ pub fn fp16_bytes_serde_test() {
     ieee_float.to_bytes_16_le,
   )
 
+  // Check overly small values underflow to a zero of the same sign
+  assert ieee_float.to_bytes_16_be(finite(-1.0e-8)) == <<0x80, 0x00>>
+  assert ieee_float.to_bytes_16_be(finite(1.0e-8)) == <<0x00, 0x00>>
+
   // Check overly large values round to infinity
   assert ieee_float.to_bytes_16_be(finite(1_000_000.0)) == <<0x7C, 0x00>>
   assert ieee_float.to_bytes_16_be(finite(-1_000_000.0)) == <<0xFC, 0x00>>
+
+  // Check that a significand that rounds up carries into the exponent
+  assert ieee_float.to_bytes_16_be(finite(1.99951171875)) == <<0x40, 0x00>>
+
+  // Check roundToTiesEven
+  assert ieee_float.to_bytes_16_be(finite(2.9802322387695312e-8)) == <<0x00, 0x00>>
 }
 
 pub fn fp32_bytes_serde_test() {

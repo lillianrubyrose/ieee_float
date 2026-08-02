@@ -72,7 +72,9 @@ function to_bytes_16(num, littleEndian) {
   } else if (num === -Infinity) {
     u8Array[1] = 0xfc;
   } else if (num === 0) {
-    // Both values are already zero
+    if (Object.is(num, -0)) {
+      u8Array[1] = 0x80;
+    }
   } else {
     const sign = num < 0 ? 1 : 0;
     num = Math.abs(num);
@@ -90,11 +92,16 @@ function to_bytes_16(num, littleEndian) {
       fraction = 0;
     }
 
-    fraction = Math.round(fraction * 1024);
+    fraction *= 1024;
+    // roundTiesToEven, the default rounding direction. §4.3.1/§4.3.3
+    let roundedFrac = Math.round(fraction);
+    if (roundedFrac - fraction === 0.5 && roundedFrac % 2 === 1) {
+      roundedFrac -= 1;
+    }
 
-    u8Array[1] =
-      (sign << 7) | ((exponent & 0x1f) << 2) | ((fraction >> 8) & 0x03);
-    u8Array[0] = fraction & 0xff;
+    const bits = (sign << 15) | ((exponent << 10) + roundedFrac);
+    u8Array[1] = bits >> 8;
+    u8Array[0] = bits & 0xff;
   }
 
   if (!littleEndian) {
